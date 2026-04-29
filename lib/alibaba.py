@@ -5,7 +5,7 @@ import os.path
 import pathlib
 import time
 
-from lib.func_txy import get_random_str, request_get, request_post
+from lib.func_txy import get_random_str, request_get, request_post, compress_image
 
 
 class Alibaba(object):
@@ -80,7 +80,7 @@ class Upload(Sign):
         name = get_random_str(5) + file_extension
 
         if os.path.exists(filename):
-            bytestream = open(filename, "rb").read()
+            bytestream = compress_image(filename)
         else:
             raise Exception(f"not found {filename}")
 

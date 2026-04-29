@@ -12,6 +12,7 @@ from lib.func_txy import (
     request_post,
     get_headers,
     fileb64_encode,
+    compress_and_encode_image
 )
 from lib.ali1688.token import Token
 from config.setting import (
@@ -61,7 +62,7 @@ class Ali1688Upload(Token):
         return params
 
     def get_data(self, filename: str) -> Dict[str, str]:
-        b64_str = fileb64_encode(filename)
+        b64_str = compress_and_encode_image(filename)
         data = json.dumps(
             {
                 "imageBase64": b64_str,
