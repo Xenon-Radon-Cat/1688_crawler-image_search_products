@@ -113,7 +113,11 @@ def multi_image_search(image_paths, example_url, core_image_search_method, selec
         page = browser.new_page()
         stealth = Stealth()
         stealth.apply_stealth_sync(page)
-        page.goto(example_url, wait_until="domcontentloaded", timeout=5000)
+
+        try:
+            page.goto(example_url, wait_until="domcontentloaded", timeout=10000)
+        except Exception as e:
+            print(f"ignore example page exception {e}")
 
         popup_callback()
 
@@ -127,8 +131,8 @@ def multi_image_search(image_paths, example_url, core_image_search_method, selec
                 print(f"{image_path} get image search url {image_search_url} costs {mid - start} seconds")
 
                 if image_search_url:
-                    page.goto(image_search_url, wait_until="domcontentloaded", timeout=5000)
-                    page.wait_for_selector(selector, timeout=5000)
+                    page.goto(image_search_url, wait_until="domcontentloaded", timeout=10000)
+                    page.wait_for_selector(selector, timeout=10000)
                     simillar_offer_urls = core_similar_offer_urls_method(page)
                     end = time.time()
                     print(f"{image_search_url} get similar offer urls {simillar_offer_urls} costs {end - mid} seconds")
@@ -143,7 +147,7 @@ def multi_image_search(image_paths, example_url, core_image_search_method, selec
                 if 'image_search_url' in locals() and image_search_url:
                     try:
                         mid = time.time()
-                        page.wait_for_selector(selector, timeout=15000)
+                        page.wait_for_selector(selector, timeout=20000)
                         simillar_offer_urls = core_similar_offer_urls_method(page)
                         end = time.time()
                         print(f"{image_search_url} get similar offer urls {simillar_offer_urls} costs {end - mid} seconds")

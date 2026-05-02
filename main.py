@@ -8,14 +8,22 @@ import openpyxl
 from openpyxl.drawing.image import Image as OpenpyxlImage
 from openpyxl.styles import Font
 
-from pathlib import Path
 import PySimpleGUI as sg
+
+import os
 import sys
 import threading
-
 import time
+import ctypes
 
 popup_event = threading.Event()
+
+def alert_popup(message, title):
+    hwnd = ctypes.windll.user32.GetForegroundWindow()
+    ctypes.windll.user32.SetForegroundWindow(hwnd)
+    ctypes.windll.user32.FlashWindow(hwnd, 12)
+
+    sg.popup(message, title=title, keep_on_top=True)
 
 def generate_excel(image_paths, interface_choice, window):
     wb = openpyxl.Workbook()
@@ -82,11 +90,11 @@ def generate_excel(image_paths, interface_choice, window):
         row += 1
 
     if getattr(sys, "frozen", False):
-        base_path_obj = Path(sys.executable).parent
+        base_path = os.path.dirname(sys.executable)
     else:
-        base_path_obj = Path(__file__).parent
+        base_path = os.path.dirname(__file__)
 
-    output_filename = str(base_path_obj.joinpath(f"{interface_choice}图片+识图搜索结果链接+相似商品链接.xlsx"))
+    output_filename = str(os.path.join(base_path, f"{interface_choice}图片+识图搜索结果链接+相似商品链接.xlsx"))
 
     while (True):
         try:
@@ -98,6 +106,14 @@ def generate_excel(image_paths, interface_choice, window):
             popup_callback(f"{output_filename}文件正处于打开状态，请先关闭文件，否则无法写入")
 
 if __name__ == "__main__":
+    if getattr(sys, "frozen", False):
+        try:
+            base_path = os.path.dirname(sys.executable)
+            log_file_path = os.path.join(base_path, "log.txt")
+            sys.stderr = sys.stdout = open(log_file_path, "w", encoding="utf-8")
+        except Exception as e:
+            print("let program go but no log")
+
     image_dir = sg.popup_get_folder("请选择图片所在文件夹", title="选择文件夹")
 
     if not image_dir:
@@ -138,7 +154,7 @@ if __name__ == "__main__":
             window.close()
             break
         elif event == "popup":
-            sg.popup(values["popup"], title="提示")
+            alert_popup(values["popup"], "提示")
             popup_event.set()
         elif event == "progress":
             end = time.time()
@@ -146,12 +162,12 @@ if __name__ == "__main__":
             window["text"].update(f"处理{success + fail}/{total}, 成功{success}个, 失败{fail}个, 平均耗时{(end - start) / (success + fail):.3f}s")
             window["progress"].update_bar(success + fail, total)
         elif event == "done":
-            window.close()
             output_filename = values["done"]
-            sg.popup(f"处理完成！成功: {success}, 失败: {fail}\n结果已保存到 {output_filename}", title="完成")
+            alert_popup(f"处理完成！成功: {success}, 失败: {fail}\n结果已保存到 {output_filename}", "完成")
             break
         elif event == "exception":
-            window.close()
             exception_name = values["exception"]
-            sg.popup(f"{exception_name}, 程序终止")
+            alert_popup(f"{exception_name}, 程序终止", "异常")
             break
+
+    window.close()
