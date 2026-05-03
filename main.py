@@ -49,7 +49,7 @@ def generate_excel(image_paths, interface_choice, window):
     elif interface_choice == "Alibaba":
         image_search_interface = alibaba_multi_image_search
     else:
-        print(f"unknown interface choice")
+        print(f"\nunknown interface choice {interface_choice}\n" )
         window.write_event_value("exception", "未知的识图搜索接口")
         return
 
@@ -102,7 +102,7 @@ def generate_excel(image_paths, interface_choice, window):
             window.write_event_value("done", output_filename)
             return
         except PermissionError as e:
-            print(f"{output_filename} has been opened {e}")
+            print(f"\n{output_filename} has been opened {e}\n")
             popup_callback(f"{output_filename}文件正处于打开状态，请先关闭文件，否则无法写入")
 
 if __name__ == "__main__":
@@ -112,7 +112,7 @@ if __name__ == "__main__":
             log_file_path = os.path.join(base_path, "log.txt")
             sys.stderr = sys.stdout = open(log_file_path, "w", encoding="utf-8")
         except Exception as e:
-            print("let program go but no log")
+            print("\nlet program go but no log\n")
 
     image_dir = sg.popup_get_folder("请选择图片所在文件夹", title="选择文件夹")
 

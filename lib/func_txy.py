@@ -74,7 +74,7 @@ def check_image_with_pillow(image_path):
             img.verify()
         return True
     except Exception as e:
-        print(f"Error occurred while checking image {image_path}: {e}")
+        print(f"\nError occurred while checking image {image_path}: {e}\n")
         return False
 
 def compress_image(image_path):
@@ -91,7 +91,7 @@ def compress_image(image_path):
             buffer.seek(0)
             return buffer.read()
     except Exception as e:
-        print(f"Error occurred while processing image {image_path}: {e}")
+        print(f"\nError occurred while processing image {image_path}: {e}\n")
         return None
 
 def compress_and_encode_image(image_path):
@@ -102,7 +102,7 @@ def compress_and_encode_image(image_path):
         b64_str = base64.b64encode(compressed_data).decode("ascii")
         return b64_str
     except Exception as e:
-        print(f"Error occurred while processing image {image_path}: {e}")
+        print(f"\nError occurred while processing image {image_path}: {e}\n")
         return None
 
 def filter_image_paths(image_dir):

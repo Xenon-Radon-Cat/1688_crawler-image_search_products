@@ -29,13 +29,13 @@ def ali1688_core_image_search(image_path):
         res = ali1688_upload.upload(image_path)
         image_id = res.json().get("data", {}).get("imageId", "")
         if not image_id:
-            print(f"fail to upload image to ali1688: {image_path}")
+            print(f"\nfail to upload image to ali1688: {image_path}\n")
             return None
         else:
            image_search_url = ali1688_upload.image_search_url(image_id)
            return image_search_url
     except Exception as e:
-        print(f"error occurs when uploading image to ali1688: {image_path} {e}")
+        print(f"\nerror occurs when uploading image to ali1688: {image_path} {e}\n")
         return None
 
 def alibaba_core_image_search(image_path):
@@ -45,7 +45,7 @@ def alibaba_core_image_search(image_path):
         image_search_url = req.url
         return image_search_url
     except Exception as e:
-        print(f"error occurs when uploading image to alibaba: {image_path} {e}")
+        print(f"\nerror occurs when uploading image to alibaba: {image_path} {e}\n")
         return None
     
 def ali1688_similar_offer_urls(page):
@@ -65,7 +65,7 @@ def ali1688_similar_offer_urls(page):
                     if len(offerIds) >= needCount:
                         break
             except Exception as e:
-                print(f"Error occurred while extracting offerIds: {e}")
+                print(f"\nError occurred while extracting offerIds: {e}\n")
 
     for offerId in offerIds:
         similar_offer_url = f"https://detail.1688.com/offer/{offerId}.html"
@@ -100,24 +100,35 @@ def multi_image_search(image_paths, example_url, core_image_search_method, selec
     result_dict = {} # image_path -> (image_search_url, [offer_url]) | None
     success = 0
     fail = 0
+    detect = 0
+    context_params = {
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+        "viewport": {
+            "width": 1024,
+            "height": 768
+        },
+        "locale": "zh-CN",
+        "timezone_id": "Asia/Shanghai"
+    }
+    timeout = 30000
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False,
-            #user_data_dir = r"C:\Users\XenonRadonCat\AppData\Local\Microsoft\Edge\User Data\Default",
             args=[
                 "--disable-blink-features=AutomationControlled",
                 "--no-sandbox",
                 "--disable-dev-shm-usage",
             ]
         )
-        page = browser.new_page()
+        context = browser.new_context(**context_params)
+        page = context.new_page()
         stealth = Stealth()
         stealth.apply_stealth_sync(page)
 
         try:
-            page.goto(example_url, wait_until="domcontentloaded", timeout=10000)
+            page.goto(example_url, wait_until="domcontentloaded", timeout=timeout)
         except Exception as e:
-            print(f"ignore example page exception {e}")
+            print(f"\nignore example page exception {e}\n")
 
         popup_callback()
 
@@ -131,38 +142,53 @@ def multi_image_search(image_paths, example_url, core_image_search_method, selec
                 print(f"{image_path} get image search url {image_search_url} costs {mid - start} seconds")
 
                 if image_search_url:
-                    page.goto(image_search_url, wait_until="domcontentloaded", timeout=10000)
-                    page.wait_for_selector(selector, timeout=10000)
+                    page.goto(image_search_url, wait_until="domcontentloaded", timeout=timeout)
+                    page.wait_for_selector(selector, timeout=timeout)
                     simillar_offer_urls = core_similar_offer_urls_method(page)
                     end = time.time()
                     print(f"{image_search_url} get similar offer urls {simillar_offer_urls} costs {end - mid} seconds")
                     result_dict[image_path] = (image_search_url, simillar_offer_urls)
-                    success += 1
-                else:
-                    fail += 1
-            except TimeoutError as e:
-                print(f"wait for selector too long, maybe redirect to login or verify page {e}")
-                popup_callback("提取相似商品链接超时，可能重定向到登录或者滑块认证，先帮忙处理")
 
-                if 'image_search_url' in locals() and image_search_url:
-                    try:
-                        mid = time.time()
-                        page.wait_for_selector(selector, timeout=20000)
-                        simillar_offer_urls = core_similar_offer_urls_method(page)
-                        end = time.time()
-                        print(f"{image_search_url} get similar offer urls {simillar_offer_urls} costs {end - mid} seconds")
-                        result_dict[image_path] = (image_search_url, simillar_offer_urls)
+                    if simillar_offer_urls:
                         success += 1
-                    except Exception as e:
-                        print(f"only retry once {e}")
-                        result_dict[image_path] = (image_search_url, None)
+                    else:
                         fail += 1
                 else:
-                    print(f"fail to get image search url")
                     result_dict[image_path] = None
+                    fail += 1
+            except TimeoutError as e:
+                print(f"\nredirect to login or verify page")
+                detect += 1
+                sleep_second = random.uniform(30, 60)
+                print(f"has been detected {detect} counts, prepare to sleep {sleep_second} second")
+                time.sleep(sleep_second)
+                print(f"prepare to create new context and page\n")
+                page.close()
+                context.close()
+                context = browser.new_context(**context_params)
+                page = context.new_page()
+                stealth.apply_stealth_sync(page)
+
+                try:
+                    page.goto(image_search_url, wait_until="domcontentloaded", timeout=timeout)
+                    popup_callback("提取相似商品链接超时，可能重定向到登录或者滑块认证，先帮忙处理")
+                    page.wait_for_selector(selector, timeout=timeout)
+                    simillar_offer_urls = core_similar_offer_urls_method(page)
+                    end = time.time()
+                    print(f"{image_search_url} get similar offer urls {simillar_offer_urls} costs {end - mid} seconds")
+                    result_dict[image_path] = (image_search_url, simillar_offer_urls)
+
+                    if simillar_offer_urls:
+                        success += 1
+                    else:
+                        fail += 1
+                except Exception as e:
+                    print(f"\nonly reslove exception once {e}\n")
+                    result_dict[image_path] = (image_search_url, None)
+                    fail += 1
             except Exception as e:
-                print(f"Error occurred while searching image {image_path}: {e}")
-                result_dict[image_path] = (image_search_url, None) if 'image_search_url' in locals() else None
+                print(f"\nError occurred while searching image {image_path}: {e}\n")
+                result_dict[image_path] = (image_search_url, None)
                 fail += 1
 
             progress_callback(success, fail)
