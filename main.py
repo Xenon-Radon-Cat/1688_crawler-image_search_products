@@ -26,16 +26,6 @@ def alert_popup(message, title):
     sg.popup(message, title=title, keep_on_top=True)
 
 def generate_excel(image_paths, interface_choice, window):
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "图片+识图搜索结果链接+相似商品链接"
-    ws["A1"] = "图片"
-    ws["B1"] = "识图搜索结果链接（24小时后无效）"
-    ws.column_dimensions["A"].width = 100
-    ws.column_dimensions["B"].width = 35
-    link_font = Font(color="0563C1", underline="single")
-    row = 2
-
     def progress_callback(success, fail):
         window.write_event_value("progress", (success, fail))
 
@@ -54,6 +44,21 @@ def generate_excel(image_paths, interface_choice, window):
         return
 
     result_dict = image_search_interface(image_paths, progress_callback, popup_callback)
+
+    if not result_dict:
+        print(f"error occurs when create relevant instances of {interface_choice}")
+        window.write_event_value("exception", "识图搜索接口初始化失败，请检查网络是否正常")
+        return
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "图片+识图搜索结果链接+相似商品链接"
+    ws["A1"] = "图片"
+    ws["B1"] = "识图搜索结果链接（24小时后无效）"
+    ws.column_dimensions["A"].width = 100
+    ws.column_dimensions["B"].width = 35
+    link_font = Font(color="0563C1", underline="single")
+    row = 2
 
     for image_path, pair in result_dict.items():
         image = OpenpyxlImage(image_path)

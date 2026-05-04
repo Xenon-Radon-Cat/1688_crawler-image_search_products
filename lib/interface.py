@@ -8,9 +8,9 @@ import random
 
 needCount = 3
 
-ali1688_upload = ali1688.Ali1688Upload()
-alibaba_upload = alibaba.Upload()
-alibaba_image_search = alibaba.ImageSearch()
+ali1688_upload = None
+alibaba_upload = None
+alibaba_image_search = None
 
 ali1688_selector = "span[data-extra]"
 alibaba_selector = "a[href^='//www.alibaba.com/product-detail'][href$='.html']"
@@ -25,28 +25,50 @@ def block_resources(route):
         route.continue_()
 
 def ali1688_core_image_search(image_path):
-    try:
-        res = ali1688_upload.upload(image_path)
-        image_id = res.json().get("data", {}).get("imageId", "")
-        if not image_id:
-            print(f"\nfail to upload image to ali1688: {image_path}\n")
-            return None
-        else:
-           image_search_url = ali1688_upload.image_search_url(image_id)
-           return image_search_url
-    except Exception as e:
-        print(f"\nerror occurs when uploading image to ali1688: {image_path} {e}\n")
-        return None
+    max_retry_count = 3
+    retry_count = 0
+
+    while (retry_count < max_retry_count):
+        try:
+            res = ali1688_upload.upload(image_path)
+            image_id = res.json().get("data", {}).get("imageId", "")
+
+            if image_id:
+                image_search_url = ali1688_upload.image_search_url(image_id)
+                return image_search_url
+
+            retry_count += 1
+            print(f"\n{retry_count}th fail to upload image to ali1688: {image_path}\n")
+        except Exception as e:
+            retry_count += 1
+            print(f"\nerror occurs when {retry_count}th uploading image to ali1688: {image_path} {e}\n")
+
+        time.sleep(random.uniform(1, 3))
+
+    return None
 
 def alibaba_core_image_search(image_path):
-    try:
-        image_key = alibaba_upload.upload(image_path)
-        req = alibaba_image_search.search(image_key=image_key)
-        image_search_url = req.url
-        return image_search_url
-    except Exception as e:
-        print(f"\nerror occurs when uploading image to alibaba: {image_path} {e}\n")
-        return None
+    max_retry_count = 3
+    retry_count = 0
+
+    while (retry_count < max_retry_count):
+        try:
+            image_key = alibaba_upload.upload(image_path)
+            req = alibaba_image_search.search(image_key=image_key)
+            image_search_url = req.url
+
+            if image_search_url:
+                return image_search_url
+
+            retry_count += 1
+            print(f"\n{retry_count}th fail to upload image to alibaba: {image_path}\n")
+        except Exception as e:
+            retry_count += 1
+            print(f"\nerror occurs when {retry_count}th uploading image to alibaba: {image_path} {e}\n")
+
+        time.sleep(random.uniform(1, 3))
+
+    return None
     
 def ali1688_similar_offer_urls(page):
     offerIds = []
@@ -91,10 +113,25 @@ def alibaba_similar_offer_urls(page):
     return similar_offer_urls
 
 def ali1688_multi_image_search(image_paths, progress_callback, popup_callback):
-    return multi_image_search(image_paths, ali1688_example_url, ali1688_core_image_search, ali1688_selector, ali1688_similar_offer_urls, progress_callback, popup_callback)
+    global ali1688_upload
+
+    try:
+        ali1688_upload = ali1688.Ali1688Upload()
+        return multi_image_search(image_paths, ali1688_example_url, ali1688_core_image_search, ali1688_selector, ali1688_similar_offer_urls, progress_callback, popup_callback)
+    except Exception as e:
+        print(f"error occurs when create instance of ali1688.Ali1688Upload {e}")
+        return None
 
 def alibaba_multi_image_search(image_paths, progress_callback, popup_callback):
-    return multi_image_search(image_paths, alibaba_example_url, alibaba_core_image_search, alibaba_selector, alibaba_similar_offer_urls, progress_callback, popup_callback)
+    global alibaba_upload, alibaba_image_search
+
+    try:
+        alibaba_upload = alibaba.Upload()
+        alibaba_image_search = alibaba.ImageSearch()
+        return multi_image_search(image_paths, alibaba_example_url, alibaba_core_image_search, alibaba_selector, alibaba_similar_offer_urls, progress_callback, popup_callback)
+    except Exception as e:
+        print(f"error occurs when create instance of alibaba.Upload {e}")
+        return None
 
 def multi_image_search(image_paths, example_url, core_image_search_method, selector, core_similar_offer_urls_method, progress_callback, popup_callback):
     result_dict = {} # image_path -> (image_search_url, [offer_url]) | None
